@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>A Última Hora: La Carretera</title>
+<style>
+  :root {
+    --bg-dark: #0b101b;
+    --panel-bg: rgba(16, 23, 38, 0.94);
+    --panel-border: rgba(255, 255, 255, 0.12);
+    --accent-amber: #ffb703;
+    --accent-orange: #fb8500;
+    --accent-green: #2ec4b6;
+    --accent-red: #ef476f;
+    --accent-blue: #3a86ff;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    background: #111827;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+  }
+
+  canvas#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 12px 8px;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: linear-gradient(to bottom, rgba(7, 11, 20, 0.88), rgba(7, 11, 20, 0));
+  }
+
+  .hud-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .hud-pill {
+    pointer-events: auto;
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+  }
+
+  .score-main {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+    color: var(--text-main);
+  }
+
+  .combo-badge {
+    background: linear-gradient(135deg, var(--accent-orange), var(--accent-red));
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 2px 7px;
+    border-radius: 999px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.16s ease;
+  }
+
+  .combo-badge.active {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .bars-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .meter-box {
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 5px 8px;
+  }
+
+  .meter-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #e2e8f0;
+  }
+
+  .meter-track {
+    width: 100%;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    width: 100%;
+    border-radius: 999px;
+    transition: width 0.1s linear, background-color 0.2s ease;
+  }
+
+  .fuel-fill {
+    background: linear-gradient(90deg, #ef476f, #ffb703, #2ec4b6);
+  }
+
+  .fuel-low {
+    animation: pulseDanger 0.55s infinite alternate;
+  }
+
+  .fever-fill {
+    background: linear-gradient(90deg, #3a86ff, #ffb703, #ff006e);
+  }
+
+  @keyframes pulseDanger {
+    from { box-shadow: 0 0 0 rgba(239, 71, 111, 0); }
+    to { box-shadow: 0 0 12px rgba(239, 71, 111, 0.9); }
+  }
+
+  .icon-btn {
+    pointer-events: auto;
+    background: rgba(15, 23, 42, 0.85);
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    padding: 6px 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .icon-btn:active {
+    transform: scale(0.95);
+  }
+
+  #bannerToast {
+    position: absolute;
+    top: 106px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 12;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(255, 183, 3, 0.5);
+    color: var(--accent-amber);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  #bannerToast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(2px);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(7, 11, 20, 0.86);
+    backdrop-filter: blur(8px);
+    display: none;
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .overlay.open {
+    display: flex;
+  }
+
+  .card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .hero-title {
+    margin: 4px 0 2px;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1.1;
+    background: linear-gradient(90deg, #ffb703, #fb8500, #ffd166);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .btn {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.12s ease, opacity 0.15s ease;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-amber), var(--accent-orange));
+    color: #0b101b;
+    font-size: 16px;
+    padding: 14px;
+  }
+
+  .btn-green {
+    background: linear-gradient(135deg, #2ec4b6, #1b9aaa);
+    color: #061317;
+  }
+
+  .btn-blue {
+    background: linear-gradient(135deg, #3a86ff, #2563eb);
+    color: #fff;
+  }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .btn-sm {
+    padding: 8px 10px;
+    font-size: 12px;
+    width: auto;
+    border-radius: 10px;
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .tab-btn {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .tab-btn.active {
+    background: rgba(255, 183, 3, 0.18);
+    color: var(--accent-amber);
+    border-color: rgba(255, 183, 3, 0.5);
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  .item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .item-row:last-child {
+    border-bottom: none;
+  }
+
+  .item-title {
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .item-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .progress-mini {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+
+  .progress-mini > div {
+    height: 100%;
+    background: var(--accent-green);
+  }
+
+  .vip-pill {
+    display: inline-block;
+    background: linear-gradient(90deg, #ffd166, #ffb703);
+    color: #111827;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .sponsor-banner {
+    background: rgba(58, 134, 255, 0.14);
+    border: 1px solid rgba(58, 134, 255, 0.35);
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input, select {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-main);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: 13px;
+    margin-top: 4px;
+    margin-bottom: 10px;
+  }
+
+  label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #cbd5e1;
+  }
+
+  .tag-sim {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255, 183, 3, 0.16);
+    color: var(--accent-amber);
+    border: 1px solid rgba(255, 183, 3, 0.35);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .stat-box {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .stat-val {
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--accent-amber);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.78);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal-box {
+    width: 100%;
+    max-width: 420px;
+    background: #121b2e;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px;
+    padding: 16px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-row">
+      <div class="hud-pill">
+        <span class="score-main" id="hudScore">0</span>
+        <span class="combo-badge" id="hudCombo">x1</span>
+      </div>
+      <div class="hud-pill" style="color:#4ade80;">
+        💵 <span id="hudCash">$0</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="icon-btn" id="btnSoundHud" title="Sonido">🔊</button>
+        <button class="icon-btn" id="btnPauseHud" title="Pausa">⏸</button>
+      </div>
+    </div>
+
+    <div class="bars-grid">
+      <div class="meter-box" id="fuelBox">
+        <div class="meter-label">
+          <span>⛽ GASOLINA</span>
+          <span id="hudFuelTxt">100%</span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-fill fuel-fill" id="hudFuelBar"></div>
+        </div>
+      </div>
+
+      <div class="meter-box">
+        <div class="meter-label">
+          <span>🔥 FIEBRE</span>
+          <span id="hudFeverTxt">0%</span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-fill fever-fill" id="hudFeverBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-row" style="font-size:11px;color:#cbd5e1;">
+      <span id="hudBestGap">🏆 Récord: 0</span>
+      <span id="hudZone">☀️ Día</span>
+    </div>
+  </div>
+
+  <div id="bannerToast"></div>
+
+  <div class="overlay open" id="menuOverlay">
+    <div class="card" style="text-align:center;">
+      <div style="display:flex;justify-content:center;gap:6px;align-items:center;margin-bottom:4px;">
+        <span class="subtitle">ENTREGA EXPRESS EN CARRETERA</span>
+        <span id="menuVipBadge" style="display:none;" class="vip-pill">👑 VIP</span>
+      </div>
+      <h1 class="hero-title">A ÚLTIMA HORA</h1>
+      <p class="subtitle">Toca izquierda o derecha (o desliza) para cambiar de carril. ¡Pasa rozando para sumar combo y billetes!</p>
+    </div>
+
+    <div id="sponsorBar" class="sponsor-banner" style="display:none;">
+      <div>
+        <div style="font-weight:800;color:#93c5fd;" id="sponsorNameDisplay">Reto Local</div>
+        <div style="font-size:11px;color:#cbd5e1;" id="sponsorGoalDisplay">Meta: 2,500 pts</div>
+      </div>
+      <button class="btn btn-blue btn-sm" id="btnShareSponsor">Retar</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="subtitle">MEJOR MARCA</div>
+        <div class="stat-val" id="menuBestScore">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="subtitle">BILLETERA</div>
+        <div class="stat-val" style="color:#4ade80;" id="menuCash">$0</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnPlay" style="margin-bottom:10px;">▶ JUGAR AHORA</button>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-ghost" id="btnDailyReward">🎁 Regalo Diario</button>
+      <button class="btn btn-green" id="btnShareWhatsApp">📲 Retar por WhatsApp</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="missions">Misiones</button>
+      <button class="tab-btn" data-tab="garage">Garaje</button>
+      <button class="tab-btn" data-tab="store">Tienda</button>
+      <button class="tab-btn" data-tab="creator">Creador</button>
+    </div>
+
+    <div class="card tab-panel active" id="tab-missions">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <strong>🎯 Misiones Diarias</strong>
+        <span class="subtitle" id="rankBadge">Rango: Novato del Asfalto</span>
+      </div>
+      <div id="missionsList"></div>
+    </div>
+
+    <div class="card tab-panel" id="tab-garage">
+      <strong>🚗 Vehículos</strong>
+      <div id="vehiclesList" style="margin-bottom:10px;"></div>
+      <strong>🔧 Mejoras del Taller</strong>
+      <div id="upgradesList"></div>
+    </div>
+
+    <div class="card tab-panel" id="tab-store">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <strong>🛒 Tienda y Mejoras</strong>
+        <span class="tag-sim">CHECKOUT + TOKENS</span>
+      </div>
+      <div class="item-row">
+        <div>
+          <div class="item-title">👑 Pase VIP Leyenda ($4.99)</div>
+          <div class="item-desc">Sin anuncios obligatorios + Auto Dorado + x2 Billetes permanentes.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnBuyVip">Activar</button>
+      </div>
+      <div class="item-row">
+        <div>
+          <div class="item-title">💼 Maletín de Billetes (+$500)</div>
+          <div class="item-desc">Recarga instantánea de $500 para desbloquear autos y taller.</div>
+        </div>
+        <button class="btn btn-green btn-sm" id="btnBuyCashPack">Obtener</button>
+      </div>
+      <div class="item-row">
+        <div>
+          <div class="item-title">🎁 Caja Sorpresa ($120 o Anuncio)</div>
+          <div class="item-desc">Gana entre $80 y $450, gasolina extra o un impulso de puntos.</div>
+        </div>
+        <button class="btn btn-blue btn-sm" id="btnOpenLootBox">Abrir</button>
+      </div>
+    </div>
+
+    <div class="card tab-panel" id="tab-creator">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong>💼 Panel del Creador</strong>
+        <span class="tag-sim">SIMULACIÓN LOCAL</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="subtitle">BRUTO EST.</div>
+          <div class="stat-val" id="creatorGross">$0.00</div>
+        </div>
+        <div class="stat-box">
+          <div class="subtitle">NETO CREADOR (-8%)</div>
+          <div class="stat-val" style="color:#4ade80;" id="creatorNet">$0.00</div>
+        </div>
+      </div>
+
+      <div class="item-row" style="padding-top:4px;">
+        <div>
+          <div class="item-title">Liquidación disponible: <span id="creatorPending">$0.00</span></div>
+          <div class="item-desc">Comisiones estimadas: <span id="creatorFees">$0.00</span> · Liquidado: <span id="creatorSettled">$0.00</span></div>
+        </div>
+        <button class="btn btn-green btn-sm" id="btnSettlePayout">Liquidar</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;" />
+
+      <label>URL de Checkout / Pasarela (opcional)</label>
+      <input type="url" id="cfgCheckoutUrl" placeholder="https://tu-enlace-de-pago.com/vip" />
+
+      <label>Número o enlace de WhatsApp de respaldo</label>
+      <input type="text" id="cfgWhatsapp" placeholder="584120000000" />
+
+      <label>ID de Red Publicitaria / Callback SDK</label>
+      <input type="text" id="cfgAdSdkId" placeholder="ca-app-pub-ejemplo-123456" />
+
+      <label>Método de retiro preferido</label>
+      <select id="cfgPayoutMethod">
+        <option value="Pago Móvil / Banca Local">Pago Móvil / Banca Local</option>
+        <option value="USDT / Billetera Digital">USDT / Billetera Digital</option>
+        <option value="Transferencia / Pasarela">Transferencia / Pasarela</option>
+      </select>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:10px 0;" />
+
+      <strong>🏆 Patrocinio y Reto Comunitario</strong>
+      <label style="display:block;margin-top:8px;">Nombre de patrocinador o marca local</label>
+      <input type="text" id="cfgSponsorName" placeholder="Ej. Bodega El Cruce / Reto del Barrio" />
+
+      <label>Meta de puntaje del reto</label>
+      <input type="number" id="cfgSponsorGoal" value="2500" min="500" step="250" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-ghost btn-sm" id="btnSaveCreatorCfg">Guardar Config</button>
+        <button class="btn btn-blue btn-sm" id="btnBuyCommunityPass">Pase Reto ($1.99)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseOverlay" style="justify-content:center;align-items:center;">
+    <div class="card" style="width:100%;max-width:360px;text-align:center;">
+      <h2 style="margin:0 0 6px;">⏸ Juego en Pausa</h2>
+      <p class="subtitle" style="margin-bottom:14px;">Tu carrera está detenida. ¿Listo para volver al asfalto?</p>
+      <button class="btn btn-primary" id="btnResume" style="margin-bottom:8px;">▶ Continuar</button>
+      <button class="btn btn-ghost" id="btnQuitToMenu">🏠 Volver al Menú</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="gameOverOverlay" style="justify-content:center;align-items:center;">
+    <div class="card" style="width:100%;max-width:390px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;" id="goTitle">💥 Fin de la Carrera</h2>
+        <button class="icon-btn" id="btnSoundGo">🔊</button>
+      </div>
+      <p class="subtitle" id="goReason" style="margin:4px 0 12px;">Choque en carretera</p>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="subtitle">PUNTAJE</div>
+          <div class="stat-val" id="goScore">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="subtitle">GANADO</div>
+          <div class="stat-val" style="color:#4ade80;" id="goCash">$0</div>
+        </div>
+      </div>
+
+      <button class="btn btn-blue" id="btnReviveAd" style="margin-bottom:8px;">⚡ Revivir con Anuncio (1x)</button>
+      <button class="btn btn-green" id="btnDoubleCashAd" style="margin-bottom:8px;">✨ Duplicar Billetes x2 (Anuncio)</button>
+      <button class="btn btn-primary" id="btnRetry" style="margin-bottom:8px;">↻ Jugar Otra Vez</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="btn btn-ghost btn-sm" id="btnGoShare">📲 Compartir</button>
+        <button class="btn btn-ghost btn-sm" id="btnGoMenu">🏠 Menú</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="actionModal">
+    <div class="modal-box">
+      <h3 style="margin:0 0 6px;" id="modalTitle">Confirmación</h3>
+      <p class="subtitle" id="modalBody" style="margin-bottom:12px;"></p>
+      <div id="modalDynamicArea"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button class="btn btn-ghost btn-sm" id="btnModalCancel">Cerrar</button>
+        <button class="btn btn-primary btn-sm" id="btnModalConfirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'a_ultima_hora_carretera_v1';
+
+  const VEHICLES = [
+    { id: 'sedan', name: 'Sedán Urbano', cost: 0, widthFactor: 1.0, speedBonus: 0, cashMult: 1.0, shieldCharges: 0, color: 
